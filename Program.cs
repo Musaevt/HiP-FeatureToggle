@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 
-namespace HiP_FeatureToggles
+namespace de.uni_paderborn.si_lab.hip.featuretoggles
 {
     public class Program
     {
