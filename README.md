@@ -1,5 +1,4 @@
 # HiP-FeatureToggles
-Develop: [![Build Status](https://travis-ci.org/HiP-App/HiP-FeatureToggles.svg?branch=develop)](https://travis-ci.org/HiP-App/HiP-FeatureToggles/)
 
 Microservice that implements feature toggles as described in our QA workflow
 
@@ -13,11 +12,6 @@ See [Getting Started](https://github.com/HiP-App/HiP-CmsWebApi#getting-started) 
 # How to submit Defects and Feature Proposals
 
 Please write an email to [hip-app@campus.upb.de](mailto:hip-app@campus.upb.de).
-
-## Documentation
-
-Documentation is currently collected in our [internal Confluence](https://atlassian-hip.cs.uni-paderborn.de/confluence/). If something is missing in this README, just [send an email](mailto:hip-app@campus.upb.de).
-
 
 ## Contact
 
