@@ -8,9 +8,10 @@ using PaderbornUniversity.SILab.Hip.FeatureToggle.Data;
 namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Migrations
 {
     [DbContext(typeof(ToggleDbContext))]
-    partial class ToggleDbContextModelSnapshot : ModelSnapshot
+    [Migration("20170405155851_AddDataModel")]
+    partial class AddDataModel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn)
@@ -37,13 +38,9 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Migrations
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
 
-                    b.Property<bool>("IsProtected");
-
                     b.Property<string>("Name");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("Name");
 
                     b.ToTable("FeatureGroups");
                 });
@@ -73,6 +70,18 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Migrations
                     b.HasIndex("FeatureGroupId");
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Values", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Value");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Values");
                 });
 
             modelBuilder.Entity("PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Entity.Feature", b =>

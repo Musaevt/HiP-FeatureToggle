@@ -8,9 +8,10 @@ using PaderbornUniversity.SILab.Hip.FeatureToggle.Data;
 namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Migrations
 {
     [DbContext(typeof(ToggleDbContext))]
-    partial class ToggleDbContextModelSnapshot : ModelSnapshot
+    [Migration("20170407095641_AddFeatureGroupProtection")]
+    partial class AddFeatureGroupProtection
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
             modelBuilder
                 .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.SerialColumn)
