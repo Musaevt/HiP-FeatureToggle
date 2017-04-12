@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
-namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Models.FeatureGroups
+namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Rest
 {
-    public class FeatureGroupViewModel
+    public class FeatureGroupArgs
     {
         [Required]
         public string Name { get; set; }
@@ -11,11 +11,11 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Models.FeatureGroups
         /// <summary>
         /// IDs of features that are enabled in this group.
         /// </summary>
-        public IList<int> EnabledFeatures { get; set; }
+        public IReadOnlyCollection<int> EnabledFeatures { get; set; }
 
         /// <summary>
         /// IDs of users that are assigned to this group.
         /// </summary>
-        public IList<string> Members { get; set; }
+        public IReadOnlyCollection<string> Members { get; set; }
     }
 }

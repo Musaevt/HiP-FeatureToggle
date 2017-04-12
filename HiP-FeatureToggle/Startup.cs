@@ -63,6 +63,7 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle
 
             // Add managers
             services.AddTransient<FeatureGroupsManager>();
+            services.AddTransient<FeaturesManager>();
             services.AddTransient<CmsService>();
         }
 

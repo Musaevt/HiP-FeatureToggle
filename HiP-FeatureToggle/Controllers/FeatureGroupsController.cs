@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using PaderbornUniversity.SILab.Hip.FeatureToggle.Managers;
 using PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Entity;
-using PaderbornUniversity.SILab.Hip.FeatureToggle.Models.FeatureGroups;
+using PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Rest;
 using PaderbornUniversity.SILab.Hip.FeatureToggle.Services;
 using PaderbornUniversity.SILab.Hip.Webservice;
 using System;
@@ -67,12 +67,13 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Controllers
         /// <summary>
         /// Stores a new feature group.
         /// </summary>
-        /// <param name="groupVM">Creation arguments</param>
+        /// <param name="groupArgs">Creation arguments</param>
         [HttpPost]
         [ProducesResponseType(200)]
-        [ProducesResponseType(400)]
         [ProducesResponseType(403)]
-        public IActionResult Create([FromBody]FeatureGroupViewModel groupVM)
+        [ProducesResponseType(409)]
+        [ProducesResponseType(422)]
+        public IActionResult Create([FromBody]FeatureGroupArgs groupArgs)
         {
             if (!IsAdministrator)
                 return Forbid();
@@ -82,20 +83,16 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Controllers
 
             try
             {
-                var newGroup = new FeatureGroup { Name = groupVM.Name };
-
-                newGroup.EnabledFeatures = _manager.GetFeatures(groupVM.EnabledFeatures)
-                    .Select(f => new FeatureToFeatureGroupMapping(f, newGroup))
-                    .ToList();
-
-                newGroup.Members = _manager.GetOrCreateUsers(groupVM.Members).ToList();
-
-                _manager.AddGroup(newGroup);
+                _manager.CreateGroup(groupArgs);
                 return Ok();
+            }
+            catch (ResourceNotFoundException<Feature> e)
+            {
+                return StatusCode(422, e.Message); // invalid feature ID
             }
             catch (ArgumentException e)
             {
-                return BadRequest(e.Message);
+                return StatusCode(409, e.Message); // group with that name already exists
             }
         }
 
@@ -106,23 +103,37 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Controllers
         [ProducesResponseType(200)]
         [ProducesResponseType(403)]
         [ProducesResponseType(404)]
+        [ProducesResponseType(409)]
         public IActionResult Delete(int groupId)
         {
             if (!IsAdministrator)
                 return Forbid();
 
-            var success = _manager.RemoveGroup(groupId);
-
-            if (!success)
-                return NotFound();
+            try
+            {
+                _manager.RemoveGroup(groupId);
+            }
+            catch (ResourceNotFoundException<FeatureGroup> e)
+            {
+                return NotFound(e.Message); // group does not exist
+            }
+            catch (InvalidOperationException e)
+            {
+                return StatusCode(409, e.Message); // tried to delete protected group
+            }
 
             return Ok();
         }
 
+        /// <summary>
+        /// Updates a feature group.
+        /// </summary>
         [HttpPut("{groupId}")]
+        [ProducesResponseType(200)]
         [ProducesResponseType(400)]
         [ProducesResponseType(403)]
-        public IActionResult Update(int groupId, [FromBody]FeatureGroupViewModel groupVM)
+        [ProducesResponseType(404)]
+        public IActionResult Update(int groupId, [FromBody]FeatureGroupArgs groupArgs)
         {
             if (!IsAdministrator)
                 return Forbid();
@@ -132,18 +143,24 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Controllers
 
             try
             {
-                var features = _manager.GetFeatures(groupVM.EnabledFeatures);
-                var members = _manager.GetOrCreateUsers(groupVM.Members);
-                _manager.UpdateGroup(groupId, groupVM.Name, features, members);
+                _manager.UpdateGroup(groupId, groupArgs);
                 return Ok();
+            }
+            catch (ResourceNotFoundException<FeatureGroup> e)
+            {
+                return NotFound(e.Message); // invalid group ID
+            }
+            catch (ResourceNotFoundException<Feature> e)
+            {
+                return StatusCode(422, e.Message); // invalid feature ID
             }
             catch (InvalidOperationException e)
             {
-                return BadRequest(e.Message);
+                return StatusCode(409, e.Message); // tried to rename protected group
             }
             catch (ArgumentException e)
             {
-                return BadRequest(e.Message);
+                return StatusCode(409, e.Message); // new group name already in use
             }
         }
 
@@ -160,13 +177,14 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Controllers
             if (!IsAdministrator)
                 return Forbid();
 
-            var user = _manager.GetOrCreateUser(userId);
-            var group = _manager.GetGroup(groupId, loadMembers: true);
-
-            if (group == null)
-                return NotFound($"There is no feature group with ID '{groupId}'");
-
-            _manager.MoveUserToGroup(user, group);
+            try
+            {
+                _manager.MoveUserToGroup(userId, groupId);
+            }
+            catch (ResourceNotFoundException<FeatureGroup> e)
+            {
+                return NotFound(e.Message);
+            }
             return Ok();
         }
     }

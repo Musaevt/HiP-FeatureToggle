@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Models.FeatureGroups
+namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Rest
 {
     public class FeatureGroupResult
     {
@@ -10,15 +10,15 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Models.FeatureGroups
 
         public string Name { get; }
 
-        public IReadOnlyList<string> Members { get; }
+        public IReadOnlyCollection<string> Members { get; }
 
-        public IReadOnlyList<int> EnabledFeatures { get; }
+        public IReadOnlyCollection<int> EnabledFeatures { get; }
 
         public FeatureGroupResult(FeatureGroup group)
         {
             Id = group.Id;
             Name = group.Name;
-            EnabledFeatures = group.EnabledFeatures.Select(f => f.Feature.Id).ToList();
+            EnabledFeatures = group.EnabledFeatures.Select(f => f.FeatureId).ToList();
             Members = group.Members.Select(m => m.Id).ToList();
         }
     }

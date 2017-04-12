@@ -1,5 +1,4 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using PaderbornUniversity.SILab.Hip.FeatureToggle.Models;
 using PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Entity;
 
 namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Data
@@ -18,6 +17,8 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Data
 
         public DbSet<FeatureGroup> FeatureGroups { get; set; }
 
+        public DbSet<FeatureToFeatureGroupMapping> FeatureToFeatureGroupMappings { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             /*
@@ -28,6 +29,7 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Data
              */
             modelBuilder.Entity<FeatureToFeatureGroupMapping>().Configure();
             modelBuilder.Entity<FeatureGroup>().Configure();
+            modelBuilder.Entity<Feature>().Configure();
         }
     }
 }
