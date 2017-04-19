@@ -1,4 +1,5 @@
-﻿using PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Entity;
+﻿using Newtonsoft.Json;
+using PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Entity;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -12,8 +13,10 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Rest
 
         public int? Parent { get; }
 
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public IReadOnlyCollection<int> Children { get; }
 
+        [JsonProperty(DefaultValueHandling = DefaultValueHandling.Ignore)]
         public IReadOnlyCollection<int> GroupsWhereEnabled { get; }
 
         public FeatureResult(Feature feature)

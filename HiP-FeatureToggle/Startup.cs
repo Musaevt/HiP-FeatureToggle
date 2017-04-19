@@ -55,7 +55,7 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle
             {
                 // Define a Swagger document
                 c.SwaggerDoc("v1", new Info() { Title = _Name, Version = _Version });
-                c.OperationFilter<SwaggerOperationFilter>();
+                c.OperationFilter<CustomSwaggerOperationFilter>();
             });
 
             // Add framework services.

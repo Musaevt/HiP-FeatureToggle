@@ -40,7 +40,7 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Controllers
             if (!IsAdministrator)
                 return Forbid();
 
-            var features = _manager.GetFeatures(loadChildren: true, loadGroups: true);
+            var features = _manager.GetAllFeatures(loadChildren: true, loadGroups: true);
             var results = features.ToList().Select(f => new FeatureResult(f));
             return Ok(results);
         }
@@ -159,6 +159,45 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Controllers
             {
                 return StatusCode(409, e.Message); // invalid parent modification
             }
+        }
+
+        /// <summary>
+        /// Checks whether a specific feature is effectively enabled for the current user.
+        /// This is the case if the user is assigned to a feature group in which the feature
+        /// and all its ancestor features are enabled.
+        /// </summary>
+        [HttpGet("{featureId}/IsEnabled")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(bool), 200)]
+        [ProducesResponseType(404)]
+        public IActionResult IsFeatureEnabledForCurrentUser(int featureId)
+        {
+            var userId = User.Identity.IsAuthenticated ? User.Identity.GetUserIdentity() : null;
+
+            try
+            {
+                var isEffectivelyEnabled = _manager.IsFeatureEffectivelyEnabledForUser(userId, featureId);
+                return Ok(isEffectivelyEnabled);
+            }
+            catch (ResourceNotFoundException<Feature> e)
+            {
+                return NotFound(e.Message);
+            }
+        }
+
+        /// <summary>
+        /// Gets all features that are effectively enabled for the current user.
+        /// These are all features X where X itself and all ancestor features of X are enabled in the
+        /// group the user is assigned to.
+        /// </summary>
+        [HttpGet("IsEnabled")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(IEnumerable<FeatureResult>), 200)]
+        public IActionResult GetEnabledFeaturesForCurrentUser()
+        {
+            var userId = User.Identity.IsAuthenticated ? User.Identity.GetUserIdentity() : null;
+            var features = _manager.GetEffectivelyEnabledFeaturesForUser(userId);
+            return Ok(features.Select(f => new FeatureResult(f)));
         }
     }
 }

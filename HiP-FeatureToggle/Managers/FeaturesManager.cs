@@ -1,32 +1,17 @@
-﻿using PaderbornUniversity.SILab.Hip.FeatureToggle.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using PaderbornUniversity.SILab.Hip.FeatureToggle.Data;
 using PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Entity;
 using PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Rest;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Managers
 {
-    public class FeaturesManager
+    public class FeaturesManager : FeatureTogglesManagerBase
     {
-        private readonly ToggleDbContext _db;
-
-        public FeaturesManager(ToggleDbContext db)
+        public FeaturesManager(ToggleDbContext db) : base(db)
         {
-            _db = db;
-        }
-
-        public IQueryable<Feature> GetFeatures(bool loadParent = false, bool loadChildren = false, bool loadGroups = false)
-        {
-            return _db.Features
-                .IncludeIf(loadParent, nameof(Feature.Parent))
-                .IncludeIf(loadChildren, nameof(Feature.Children))
-                .IncludeIf(loadGroups, nameof(Feature.GroupsWhereEnabled));
-        }
-
-        public Feature GetFeature(int featureId, bool loadParent = false, bool loadChildren = false, bool loadGroups = false)
-        {
-            return GetFeatures(loadParent, loadChildren, loadGroups)
-                .FirstOrDefault(f => f.Id == featureId);
         }
 
         /// <exception cref="ArgumentNullException">The specified arguments are null</exception>
@@ -142,22 +127,110 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Managers
             _db.SaveChanges();
         }
 
+        /// <summary>
+        /// Checks whether a specific feature is effectively enabled for a specific user or an anonymous
+        /// (unauthenticated) user. Anonymous users are considered to be in the
+        /// <see cref="FeatureTogglesManagerBase.PublicGroup"/>.
+        /// </summary>
+        /// <exception cref="ResourceNotFoundException{Feature}"/>
+        public bool IsFeatureEffectivelyEnabledForUser(string userId, int featureId)
+        {
+            var group = GetGroupForUser(userId);
+            var feature = GetFeature(featureId);
+
+            if (feature == null)
+                throw new ResourceNotFoundException<Feature>(featureId);
+
+            return IsFeatureEffectivelyEnabledForGroup(feature, group);
+        }
+
+        /// <summary>
+        /// Gets the features that are effectively enabled for a specific user or an anonymous (unauthenticated) user.
+        /// Anonymous users are considered to be in the <see cref="FeatureTogglesManagerBase.PublicGroup"/>.
+        /// </summary>
+        /// <param name="userId">The ID of a user or null for anonymous users</param>
+        /// <returns></returns>
+        public IReadOnlyCollection<Feature> GetEffectivelyEnabledFeaturesForUser(string userId)
+        {
+            var group = GetGroupForUser(userId);
+            return GetEffectivelyEnabledFeaturesForGroup(group);
+        }
+
+        private FeatureGroup GetGroupForUser(string userId)
+        {
+            // for anonymous users, the protected public group is relevant
+            if (userId == null)
+                return PublicGroup;
+
+            // for authenticated users, it is the group they are assigned to
+            var user = GetOrCreateUser(userId);
+
+            return _db.FeatureGroups
+                .Include(g => g.EnabledFeatures).ThenInclude(m => m.Feature).ThenInclude(f => f.Children)
+                .First(g => g.Id == user.FeatureGroupId); // per specification, this group must exist
+        }
+
+        private bool IsFeatureEffectivelyEnabledForGroup(Feature feature, FeatureGroup group)
+        {
+            // required navigation properties: FeatureGroup.EnabledFeatures
+            var enabledFeatures = group.EnabledFeatures
+                .Concat(PublicGroup.EnabledFeatures)
+                .Distinct();
+
+            return AncestorsAndSelf(feature).All(parent => enabledFeatures.Any(m => m.FeatureId == parent.Id));
+        }
+
+        private IReadOnlyCollection<Feature> GetEffectivelyEnabledFeaturesForGroup(FeatureGroup group)
+        {
+            // required navigation properties: FeatureGroup.EnabledFeatures.Feature
+
+            // The feature group specifies which features are enabled.
+            // From specification: "A feature X is [effectively] enabled for a certain user if X and all features
+            // higher than X in the feature hierarchy are enabled for the user's feature group [or the public group]"
+            // (features enabled in the public group are "added" to those of the user's group, HIPCMS-608)
+            // Thus, the set of effectively enabled features is a subset of the enabled features.
+
+            // Example:
+            // Feature Hierarchy:        Features enabled in user Bob's group: [1, 2, 4]
+            // (1)                       Features enabled in public group:     [3, 5]
+            //    (2)
+            // (3)                       Features effectively enabled for user Bob:        [1, 3, 5]
+            //    (4)                    Features effectively enabled for unauthenticated users: [3]
+            //       (5)
+            //       (6)
+            //    (7)
+
+            var enabledFeatures = group.EnabledFeatures
+                .Concat(PublicGroup.EnabledFeatures)
+                .Distinct()
+                .Select(m => m.Feature)
+                .ToSet();
+
+            return enabledFeatures
+                .Where(f => AncestorsAndSelf(f).All(parent => enabledFeatures.Contains(parent)))
+                .ToList();
+        }
+
         private bool IsDescendantOrEqual(Feature feature, Feature other)
         {
             // checks if 'feature' is a descendant of 'other' in the feature tree structure
             // or if 'feature' and 'other' are the same.
+            return feature != null && other != null && AncestorsAndSelf(feature).Contains(other);
+        }
+
+        private IEnumerable<Feature> AncestorsAndSelf(Feature feature)
+        {
+            // returns a collection of the feature itself, its parent, its parent's parent etc. (up to the root)
             // (potentially expensive operation, depending on the tree depth)
 
-            if (feature == null || other == null)
-                return false;
+            while (feature != null)
+            {
+                yield return feature;
 
-            if (feature == other)
-                return true;
-
-            // next parent must be explicitly loaded since usually not the whole tree structure is available here
-            // (Note: Load() doesn't work here, probably because the entity is tracked)
-            var next = _db.Entry(feature).Reference(f => f.Parent).Query().FirstOrDefault();
-            return IsDescendantOrEqual(next, other);
+                // next parent must be explicitly loaded since usually not the whole tree structure is available here
+                // (Note: Load() doesn't work here, probably because the entity is tracked)
+                feature = _db.Entry(feature).Reference(f => f.Parent).Query().FirstOrDefault();
+            }
         }
     }
 }

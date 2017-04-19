@@ -1,9 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
-using PaderbornUniversity.SILab.Hip.FeatureToggle.Data;
+﻿using PaderbornUniversity.SILab.Hip.FeatureToggle.Data;
 using PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Entity;
 using PaderbornUniversity.SILab.Hip.FeatureToggle.Models.Rest;
 using System;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Managers
@@ -14,99 +12,10 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Managers
     /// <remarks>
     /// There exists a default feature group new users are assigned to.
     /// </remarks>
-    public class FeatureGroupsManager
+    public class FeatureGroupsManager : FeatureTogglesManagerBase
     {
-        private static readonly User[] _noUsers = new User[0];
-        private static readonly Feature[] _noFeatures = new Feature[0];
-
-        private readonly ToggleDbContext _db;
-
-        /// <summary>
-        /// The default group for authorized users.
-        /// </summary>
-        public FeatureGroup DefaultGroup { get; }
-
-        /// <summary>
-        /// The group for unauthorized users.
-        /// </summary>
-        public FeatureGroup PublicGroup { get; }
-
-        public FeatureGroupsManager(ToggleDbContext db)
+        public FeatureGroupsManager(ToggleDbContext db) : base(db)
         {
-            _db = db;
-
-            // Load standard groups which are always available and can't be deleted.
-            // If this fails, the database is not correctly initialized.
-            DefaultGroup = GetGroups(true, true).Single(g => g.Name == FeatureGroup.DefaultGroupName);
-            PublicGroup = GetGroups(true, true).Single(g => g.Name == FeatureGroup.PublicGroupName);
-        }
-
-        public User GetOrCreateUser(string userId)
-        {
-            var user = _db.Users
-                .Include(nameof(User.FeatureGroup))
-                .FirstOrDefault(u => u.Id == userId);
-
-            if (user != null)
-                return user;
-
-            // create new user
-            var newUser = CreateUser(userId);
-            _db.SaveChanges();
-            return newUser;
-        }
-
-        public IEnumerable<User> GetOrCreateUsers(IEnumerable<string> userIds)
-        {
-            if (userIds == null)
-                return _noUsers;
-
-            var userIdsSet = userIds.ToSet();
-            var storedUsers = _db.Users.Where(u => userIdsSet.Contains(u.Id)).ToList();
-            var missingUserIds = userIdsSet.Except(storedUsers.Select(u => u.Id));
-
-            if (missingUserIds.Any())
-            {
-                // Create missing users
-                var newUsers = missingUserIds.Select(id => CreateUser(id)).ToList();
-                _db.SaveChanges();
-                return storedUsers.Concat(newUsers);
-            }
-
-            return storedUsers;
-        }
-
-        /// <exception cref="ResourceNotFoundException{Feature}">No features exist for one or multiple of the specified IDs</exception>
-        public IReadOnlyCollection<Feature> GetFeatures(IEnumerable<int> featureIds, bool loadGroups = false)
-        {
-            if (featureIds == null)
-                return _noFeatures;
-
-            var featureIdsSet = featureIds.ToSet();
-
-            var storedFeatures = _db.Features
-                .IncludeIf(loadGroups, nameof(Feature.GroupsWhereEnabled))
-                .Where(f => featureIdsSet.Contains(f.Id)).ToList();
-
-            var missingFeatureIds = featureIdsSet.Except(storedFeatures.Select(f => f.Id));
-
-            if (missingFeatureIds.Any())
-                throw new ResourceNotFoundException<Feature>(missingFeatureIds);
-
-            return storedFeatures;
-        }
-
-        public IQueryable<FeatureGroup> GetGroups(bool loadMembers = false, bool loadFeatures = false)
-        {
-            return _db.FeatureGroups
-                .IncludeIf(loadMembers, nameof(FeatureGroup.Members))
-                .IncludeIf(loadFeatures, nameof(FeatureGroup.EnabledFeatures));
-        }
-
-        public FeatureGroup GetGroup(int groupId, bool loadMembers = false, bool loadFeatures = false)
-        {
-            return GetGroups(loadMembers, loadFeatures)
-                .FirstOrDefault(g => g.Id == groupId);
         }
 
         /// <exception cref="ArgumentNullException">Specified argument is null</exception>
@@ -123,8 +32,8 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Managers
             var group = new FeatureGroup { Name = args.Name };
 
             group.EnabledFeatures = GetFeatures(args.EnabledFeatures)
-                    .Select(f => new FeatureToFeatureGroupMapping(f, group))
-                    .ToList();
+                .Select(f => new FeatureToFeatureGroupMapping(f, group))
+                .ToList();
 
             group.Members = GetOrCreateUsers(args.Members).ToList();
 
@@ -168,7 +77,7 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Managers
         /// <exception cref="ArgumentException">The new group name is already in use</exception>
         /// <exception cref="ResourceNotFoundException{Feature}">There is no feature with the specified ID</exception>
         /// <exception cref="ResourceNotFoundException{FeatureGroup}">There is no group with the specified ID</exception>
-        /// <exception cref="InvalidOperationException">It is attempted to rename a protected feature group</exception>
+        /// <exception cref="InvalidOperationException">Tried to rename a protected feature group or tried to move users to the public group</exception>
         public void UpdateGroup(int groupId, FeatureGroupArgs args)
         {
             if (args == null)
@@ -184,6 +93,9 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Managers
 
             if (group.IsProtected && args.Name != group.Name)
                 throw new InvalidOperationException($"Protected group '{group.Name}' cannot be renamed");
+
+            if (group.Id == PublicGroup.Id && (args.Members?.Count ?? 0) > 0)
+                throw new InvalidOperationException("Users cannot explicitly be moved into the public group");
 
             group.Name = args.Name;
             var newMembers = GetOrCreateUsers(args.Members).ToList();
@@ -217,8 +129,12 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Managers
         }
 
         /// <exception cref="ResourceNotFoundException{FeatureGroup}">The group with specified ID does not exist</exception>
+        /// <exception cref="InvalidOperationException">Tried to move user to the public group</exception>
         public void MoveUserToGroup(string userId, int groupId)
         {
+            if (groupId == PublicGroup.Id)
+                throw new InvalidOperationException("Users cannot explicitly be moved into the public group");
+
             var user = GetOrCreateUser(userId);
             var group = GetGroup(groupId, loadMembers: true);
 
@@ -235,18 +151,6 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Managers
             user.FeatureGroup.Members.Remove(user);
             group.Members.Add(user);
             user.FeatureGroup = group;
-        }
-
-        private User CreateUser(string id)
-        {
-            var user = new User
-            {
-                Id = id,
-                FeatureGroup = DefaultGroup
-            };
-
-            _db.Users.Add(user);
-            return user;
         }
     }
 }

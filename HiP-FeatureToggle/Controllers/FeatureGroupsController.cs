@@ -40,7 +40,7 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Controllers
             if (!IsAdministrator)
                 return Forbid();
 
-            var groups = _manager.GetGroups(loadMembers: true, loadFeatures: true);
+            var groups = _manager.GetAllGroups(loadMembers: true, loadFeatures: true);
             var results = groups.ToList().Select(g => new FeatureGroupResult(g)); // note: ToList() is required here
             return Ok(results);
         }
@@ -156,7 +156,8 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Controllers
             }
             catch (InvalidOperationException e)
             {
-                return StatusCode(409, e.Message); // tried to rename protected group
+                // tried to rename protected group or tried to move users to the public group
+                return StatusCode(409, e.Message);
             }
             catch (ArgumentException e)
             {
@@ -172,6 +173,7 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Controllers
         [ProducesResponseType(200)]
         [ProducesResponseType(403)]
         [ProducesResponseType(404)]
+        [ProducesResponseType(409)]
         public IActionResult AssignMember(string userId, int groupId)
         {
             if (!IsAdministrator)
@@ -184,6 +186,10 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Controllers
             catch (ResourceNotFoundException<FeatureGroup> e)
             {
                 return NotFound(e.Message);
+            }
+            catch (InvalidOperationException e)
+            {
+                return StatusCode(409, e.Message); // tried to move user to public group
             }
             return Ok();
         }

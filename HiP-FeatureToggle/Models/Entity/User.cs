@@ -5,5 +5,7 @@
         public string Id { get; set; }
 
         public FeatureGroup FeatureGroup { get; set; }
+
+        public int FeatureGroupId { get; set; }
     }
 }
