@@ -156,6 +156,67 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Managers
             return GetEffectivelyEnabledFeaturesForGroup(group);
         }
 
+
+        /// <summary>
+        /// Enable Feature for the Feature Group
+        /// </summary>
+        /// <exception cref="ArgumentException">The feature already exists in group</exception>
+        /// <exception cref="ResourceNotFoundException{Feature}">There is no feature with the specified ID</exception>
+        /// <exception cref="ResourceNotFoundException{FeatureGroup}">There is no group with the specified ID</exception>
+         public FeatureToFeatureGroupMapping EnableFeautureForGroup(int featureId,int groupId)
+        {
+            var feature = GetFeature(featureId, loadParent: true, loadChildren: true, loadGroups: true);
+
+            if (feature == null)
+                throw new ResourceNotFoundException<Feature>(featureId);
+
+            var group = GetGroup(groupId,loadFeatures:true);
+
+            if (group == null)
+                throw new ResourceNotFoundException<FeatureGroup>(groupId);
+
+            if (group.EnabledFeatures.Any(x => x.FeatureId == featureId))
+                throw new ArgumentException($"A feature '{featureId}' already exists in group '{groupId}'");
+
+            var mapping = new FeatureToFeatureGroupMapping(feature, group);
+            feature.GroupsWhereEnabled.Add(mapping);
+            group.EnabledFeatures.Add(mapping);
+
+            _db.FeatureToFeatureGroupMappings.Add(mapping);
+            _db.SaveChanges();
+
+            return mapping;
+
+        }
+
+        /// <summary>
+        /// Disable Feature for the Feature Group
+        /// </summary>
+        /// <exception cref="ArgumentException">The feature don`t exists in group</exception>
+        /// <exception cref="ResourceNotFoundException{Feature}">There is no feature with the specified ID</exception>
+        /// <exception cref="ResourceNotFoundException{FeatureGroup}">There is no group with the specified ID</exception>
+        public void DisableFeatureForGroup(int featureId,int groupId)
+        {
+            var feature = GetFeature(featureId, loadParent: true, loadChildren: true, loadGroups: true);
+
+            if (feature == null)
+                throw new ResourceNotFoundException<Feature>(featureId);
+
+            var group = GetGroup(groupId, loadFeatures: true);
+
+            if (group == null)
+                throw new ResourceNotFoundException<FeatureGroup>(groupId);
+
+           var mapping = group.EnabledFeatures.FirstOrDefault(x => x.FeatureId == featureId);
+
+            if (mapping==null)
+                throw new ArgumentException($"A feature '{featureId}' do not exists in group '{groupId}'");
+
+            _db.FeatureToFeatureGroupMappings.Remove(mapping);
+            _db.SaveChanges();
+
+        }
+
         private FeatureGroup GetGroupForUser(string userId)
         {
             // for anonymous users, the protected public group is relevant

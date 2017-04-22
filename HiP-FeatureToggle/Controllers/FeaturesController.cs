@@ -185,6 +185,56 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle.Controllers
             }
         }
 
+        [HttpPut("{featureId}/Group/{groupId}")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(403)]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(409)]
+        public IActionResult EnableFeautureForGroup(int featureId,int groupId)
+        {
+            if (!IsAdministrator)
+                return Forbid();
+
+            try
+            {
+                _manager.EnableFeautureForGroup(featureId, groupId);
+                return Ok();
+            }
+            catch (ResourceNotFoundException e) 
+            {
+                return NotFound(e.Message); // feature or group does not exist
+            }
+            catch (ArgumentException e)
+            {
+                return StatusCode(409, e.Message); // feature already exists in group
+            }
+        }
+
+        [HttpDelete("{featureId}/Group/{groupId}")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(403)]
+        [ProducesResponseType(404)]
+        [ProducesResponseType(409)]
+        public IActionResult DisableFeautureForGroup(int featureId, int groupId)
+        {
+            if (!IsAdministrator)
+                return Forbid();
+
+            try
+            {
+                _manager.DisableFeatureForGroup(featureId, groupId);
+                return Ok();
+            }
+            catch (ResourceNotFoundException e)
+            {
+                return NotFound(e.Message); // feature or group does not exist
+            }
+            catch (ArgumentException e)
+            {
+                return StatusCode(409, e.Message); // feature don`t exists in group
+            }
+        }
+
         /// <summary>
         /// Gets all features that are effectively enabled for the current user.
         /// These are all features X where X itself and all ancestor features of X are enabled in the
