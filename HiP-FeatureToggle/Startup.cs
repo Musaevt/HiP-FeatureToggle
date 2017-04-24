@@ -31,7 +31,7 @@ namespace PaderbornUniversity.SILab.Hip.FeatureToggle
                 .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
                 .AddEnvironmentVariables();
             Configuration = configurationBuilder.Build();
-        }
+         }
 
         public IConfigurationRoot Configuration { get; }
 
